@@ -1,5 +1,5 @@
-import {useState, useEffect} from "react";
-import {ethers} from "ethers";
+import { useState, useEffect } from "react";
+import { ethers } from "ethers";
 import atm_abi from "../artifacts/contracts/Assessment.sol/Assessment.json";
 
 export default function HomePage() {
@@ -7,111 +7,117 @@ export default function HomePage() {
   const [account, setAccount] = useState(undefined);
   const [atm, setATM] = useState(undefined);
   const [balance, setBalance] = useState(undefined);
-
-  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  const [ownerAddress, setOwnerAddress] = useState(""); // Default empty owner address
+  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Contract address
   const atmABI = atm_abi.abi;
 
-  const getWallet = async() => {
+  const getWallet = async () => {
     if (window.ethereum) {
       setEthWallet(window.ethereum);
     }
+  };
 
-    if (ethWallet) {
-      const account = await ethWallet.request({method: "eth_accounts"});
-      handleAccount(account);
-    }
-  }
-
-  const handleAccount = (account) => {
-    if (account) {
-      console.log ("Account connected: ", account);
-      setAccount(account);
-    }
-    else {
-      console.log("No account found");
-    }
-  }
-
-  const connectAccount = async() => {
+  const connectAccount = async () => {
     if (!ethWallet) {
-      alert('MetaMask wallet is required to connect');
+      alert("MetaMask wallet is required to connect");
       return;
     }
-  
-    const accounts = await ethWallet.request({ method: 'eth_requestAccounts' });
-    handleAccount(accounts);
-    
-    // once wallet is set we can get a reference to our deployed contract
-    getATMContract();
+
+    const accounts = await ethWallet.request({ method: "eth_requestAccounts" });
+    if (accounts.length > 0) {
+      setAccount(accounts[0]);
+      // Once wallet is set, get a reference to the deployed contract
+      getATMContract();
+    }
   };
 
   const getATMContract = () => {
     const provider = new ethers.providers.Web3Provider(ethWallet);
     const signer = provider.getSigner();
     const atmContract = new ethers.Contract(contractAddress, atmABI, signer);
- 
     setATM(atmContract);
-  }
+    getBalance();
+  };
 
-  const getBalance = async() => {
+  const getBalance = async () => {
     if (atm) {
-      setBalance((await atm.getBalance()).toNumber());
+      const newBalance = await atm.getBalance();
+      setBalance(newBalance.toNumber());
     }
-  }
+  };
 
-  const deposit = async() => {
-    if (atm) {
-      let tx = await atm.deposit(1);
-      await tx.wait()
+  const deposit = async () => {
+    try {
+      // Verify the entered owner address
+      if (ownerAddress.toLowerCase() !== "0x5FbDB2315678afecb367f032d93F642f64180aa3".toLowerCase()) {
+        throw new Error("You are not authorized to use this ATM");
+      }
+
+      const tx = await atm.deposit(1, { from: account }); // Pass sender address
+      await tx.wait();
       getBalance();
+      // Print digital receipt
+      alert(Transaction Successful!\n\nOwner Address: ${ownerAddress}\nAccount: ${account}\nTransaction Type: Deposit\nAmount: 1 ETH);
+    } catch (error) {
+      console.error("Error depositing:", error);
+      alert("Error depositing: " + error.message);
     }
-  }
+  };
 
-  const withdraw = async() => {
-    if (atm) {
-      let tx = await atm.withdraw(1);
-      await tx.wait()
+  const withdraw = async () => {
+    try {
+      // Verify the entered owner address
+      if (ownerAddress.toLowerCase() !== "0x5FbDB2315678afecb367f032d93F642f64180aa3".toLowerCase()) {
+        throw new Error("You are not authorized to use this ATM");
+      }
+
+      const tx = await atm.withdraw(1, { from: account }); // Pass sender address
+      await tx.wait();
       getBalance();
+      // Print digital receipt
+      alert(Transaction Successful!\n\nOwner Address: ${ownerAddress}\nAccount: ${account}\nTransaction Type: Withdrawal\nAmount: 1 ETH);
+    } catch (error) {
+      console.error("Error withdrawing:", error);
+      alert("Error withdrawing: " + error.message);
     }
-  }
+  };
 
-  const initUser = () => {
-    // Check to see if user has Metamask
-    if (!ethWallet) {
-      return <p>Please install Metamask in order to use this ATM.</p>
-    }
+  const disconnectAccountManually = () => {
+    alert("To disconnect your MetaMask account manually, follow these steps:\n\n1. Click on the MetaMask extension icon in the browser toolbar.\n2. Click on the account icon at the top-right corner.\n3. Scroll down to the bottom of the menu and click on 'Settings'.\n4. In the Settings menu, scroll down to the 'Advanced' section.\n5. Click on 'Connected Sites'.\n6. Find your site in the list of connected sites and click on the three dots icon next to it.\n7. Select 'Forget this site' from the dropdown menu.");
+  };
 
-    // Check to see if user is connected. If not, connect to their account
-    if (!account) {
-      return <button onClick={connectAccount}>Please connect your Metamask wallet</button>
-    }
-
-    if (balance == undefined) {
-      getBalance();
-    }
-
-    return (
-      <div>
-        <p>Your Account: {account}</p>
-        <p>Your Balance: {balance}</p>
-        <button onClick={deposit}>Deposit 1 ETH</button>
-        <button onClick={withdraw}>Withdraw 1 ETH</button>
-      </div>
-    )
-  }
-
-  useEffect(() => {getWallet();}, []);
+  useEffect(() => {
+    getWallet();
+  }, []);
 
   return (
     <main className="container">
-      <header><h1>Welcome to the Metacrafters ATM!</h1></header>
-      {initUser()}
+      <header>
+        <h1>Welcome to the Metacrafters ATM!</h1>
+      </header>
+      {account ? (
+        <div>
+          <p>Your Account: {account}</p>
+          <p>Your Balance: {balance}</p>
+          <p>Please enter owner address to make a successful transaction:</p>
+          <input
+            type="text"
+            placeholder="Enter owner address"
+            value={ownerAddress}
+            onChange={(e) => setOwnerAddress(e.target.value)}
+          />
+          <button onClick={deposit}>Deposit 1 ETH</button>
+          <button onClick={withdraw}>Withdraw 1 ETH</button>
+          <button onClick={disconnectAccountManually}>Disconnect Account (Manual)</button>
+        </div>
+      ) : (
+        <button onClick={connectAccount}>Connect your MetaMask wallet</button>
+      )}
       <style jsx>{`
         .container {
-          text-align: center
+          text-align: center;
         }
-      `}
-      </style>
+      `}</style>
     </main>
-  )
+  );
 }
