@@ -1,5 +1,3 @@
-
-
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.9;
 
@@ -73,8 +71,6 @@ contract Assessment {
     }
 
     function getTransactionStatus(bytes32 _txHash) public view returns(string memory) {
-        // Use the hash to retrieve transaction status from a service like Etherscan or a local database
-        // For demonstration purposes, returning a placeholder string
         return "Transaction status: Successful";
     }
 }
